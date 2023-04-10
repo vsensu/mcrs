@@ -75,10 +75,9 @@ pub fn setup(
         ..default()
     });
 
-    commands.insert_resource(MyCamera {
+    commands.insert_resource(MouseSettings {
         speed: 10.0,
-        sensitivity: 0.2,
-        last_mouse_pos: None,
+        sensitivity: 0.02,
     });
 }
 
@@ -117,17 +116,16 @@ fn uv_debug_texture() -> Image {
 }
 
 #[derive(Resource, Default, Debug)]
-pub struct MyCamera {
+pub struct MouseSettings {
     speed: f32,
     sensitivity: f32,
-    last_mouse_pos: Option<Vec2>,
 }
 
 pub fn camera_movement(
     time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Camera>>,
-    camera: Res<MyCamera>,
+    ms: Res<MouseSettings>,
 ) {
     let mut direction = Vec3::ZERO;
     if keyboard_input.pressed(KeyCode::W) {
@@ -146,7 +144,7 @@ pub fn camera_movement(
         direction = direction.normalize();
     }
     let delta_seconds = time.delta_seconds();
-    let translation = direction * camera.speed * delta_seconds;
+    let translation = direction * ms.speed * delta_seconds;
     let mut transform = query.single_mut();
     let forward = transform.local_z();
     let right = transform.local_x();
@@ -156,6 +154,7 @@ pub fn camera_movement(
 // first person camera
 pub fn mouse_look(
     time: Res<Time>,
+    ms: Res<MouseSettings>,
     mut primary_query: Query<&mut Window, With<PrimaryWindow>>,
     mut query: Query<&mut Transform, With<Camera>>,
 ) {
@@ -164,7 +163,6 @@ pub fn mouse_look(
     };
 
     let delta = time.delta_seconds();
-    let sensitivity = 0.02;
     let size = Vec2 {
         x: primary.width(),
         y: primary.height(),
@@ -174,7 +172,7 @@ pub fn mouse_look(
     let mut delta_mouse = primary.cursor_position().unwrap_or(center) - center;
     if delta_mouse.length_squared() > 0.0 {
         let window_scale = primary.height().min(primary.width());
-        delta_mouse *= sensitivity * window_scale * delta;
+        delta_mouse *= ms.sensitivity * window_scale * delta;
         let mut transform = query.single_mut();
         let (mut yaw, mut pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
         pitch -= -delta_mouse.y.to_radians();
@@ -182,6 +180,6 @@ pub fn mouse_look(
         pitch = pitch.clamp(-1.54, 1.54);
         transform.rotation =
             Quat::from_axis_angle(Vec3::Y, yaw) * Quat::from_axis_angle(Vec3::X, pitch);
-        primary.set_cursor_position(Some(center));
     }
+    primary.set_cursor_position(Some(center));
 }
