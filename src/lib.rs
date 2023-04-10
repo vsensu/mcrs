@@ -78,7 +78,7 @@ pub fn setup(
     commands.insert_resource(MouseSettings {
         speed: 10.0,
         sensitivity: 0.02,
-        ui_mode: false,
+        ui_mode: true,
     });
 }
 
@@ -153,11 +153,28 @@ pub fn camera_movement(
     transform.translation += translation.x * right + translation.z * forward;
 }
 
-pub fn input_mode(mut ms: ResMut<MouseSettings>,
-    keyboard_input: Res<Input<KeyCode>>
+pub fn input_mode(
+    mut ms: ResMut<MouseSettings>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut primary_query: Query<&mut Window, With<PrimaryWindow>>,
 ) {
     if keyboard_input.just_released(KeyCode::Grave) {
         ms.ui_mode = !ms.ui_mode;
+
+        let Ok(mut primary) = primary_query.get_single_mut() else {
+            return;
+        };
+
+        primary.cursor.visible = ms.ui_mode;
+
+        if !ms.ui_mode {
+            let size = Vec2 {
+                x: primary.width(),
+                y: primary.height(),
+            };
+            let center = size / 2.0;
+            primary.set_cursor_position(Some(center));
+        }
     }
 }
 
