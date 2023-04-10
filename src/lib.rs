@@ -5,6 +5,11 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     window::PrimaryWindow,
 };
+use smooth_bevy_cameras::{
+    controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin},
+    LookTransformPlugin,
+};
+
 
 /// A marker component for our shapes so we can query them separately from the ground plane
 #[derive(Component)]
@@ -70,10 +75,14 @@ pub fn setup(
         ..default()
     });
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
-        ..default()
-    });
+    commands
+    .spawn(Camera3dBundle::default())
+    .insert(FpsCameraBundle::new(
+        FpsCameraController::default(),
+        Vec3::new(-2.0, 5.0, 5.0),
+        Vec3::new(0., 0., 0.),
+        Vec3::Y,
+    ));
 
     commands.insert_resource(MouseSettings {
         speed: 10.0,
@@ -123,98 +132,32 @@ pub struct MouseSettings {
     ui_mode: bool,
 }
 
-pub fn camera_movement(
-    time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<&mut Transform, With<Camera>>,
-    ms: Res<MouseSettings>,
-) {
-    let mut direction = Vec3::ZERO;
-    if keyboard_input.pressed(KeyCode::W) {
-        direction.z -= 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::A) {
-        direction.x -= 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::S) {
-        direction.z += 1.0;
-    }
-    if keyboard_input.pressed(KeyCode::D) {
-        direction.x += 1.0;
-    }
-    if direction.length() > 0.0 {
-        direction = direction.normalize();
-    }
-    let delta_seconds = time.delta_seconds();
-    let translation = direction * ms.speed * delta_seconds;
-    let mut transform = query.single_mut();
-    let forward = transform.local_z();
-    let right = transform.local_x();
-    transform.translation += translation.x * right + translation.z * forward;
-}
-
 pub fn input_mode(
     mut ms: ResMut<MouseSettings>,
     keyboard_input: Res<Input<KeyCode>>,
     mut primary_query: Query<&mut Window, With<PrimaryWindow>>,
+    mut fps_camera_query: Query<&mut FpsCameraController>,
 ) {
     if keyboard_input.just_released(KeyCode::Grave) {
         ms.ui_mode = !ms.ui_mode;
 
-        let Ok(mut primary) = primary_query.get_single_mut() else {
-            return;
+        fps_camera_query.single_mut().enabled = !ms.ui_mode;
+
+        if let Ok(mut primary) = primary_query.get_single_mut() {
+            primary.cursor.visible = ms.ui_mode;
         };
-
-        primary.cursor.visible = ms.ui_mode;
-
-        if !ms.ui_mode {
-            let size = Vec2 {
-                x: primary.width(),
-                y: primary.height(),
-            };
-            let center = size / 2.0;
-            primary.set_cursor_position(Some(center));
-        }
-    }
-}
-
-// first person camera
-pub fn mouse_look(
-    time: Res<Time>,
-    ms: Res<MouseSettings>,
-    mut primary_query: Query<&mut Window, With<PrimaryWindow>>,
-    mut query: Query<&mut Transform, With<Camera>>,
-) {
-    if ms.ui_mode {
-        return;
     }
 
     let Ok(mut primary) = primary_query.get_single_mut() else {
         return;
     };
 
-    if !primary.focused {
-        return;
+    if !ms.ui_mode {
+        let size = Vec2 {
+            x: primary.width(),
+            y: primary.height(),
+        };
+        let center = size / 2.0;
+        primary.set_cursor_position(Some(center));
     }
-
-    let delta = time.delta_seconds();
-    let size = Vec2 {
-        x: primary.width(),
-        y: primary.height(),
-    };
-    let center = size / 2.0;
-
-    let mut delta_mouse = primary.cursor_position().unwrap_or(center) - center;
-    if delta_mouse.length_squared() > 0.0 {
-        let window_scale = primary.height().min(primary.width());
-        delta_mouse *= ms.sensitivity * window_scale * delta;
-        let mut transform = query.single_mut();
-        let (mut yaw, mut pitch, _) = transform.rotation.to_euler(EulerRot::YXZ);
-        pitch -= -delta_mouse.y.to_radians();
-        yaw -= delta_mouse.x.to_radians();
-        pitch = pitch.clamp(-1.54, 1.54);
-        transform.rotation =
-            Quat::from_axis_angle(Vec3::Y, yaw) * Quat::from_axis_angle(Vec3::X, pitch);
-    }
-    primary.set_cursor_position(Some(center));
 }
