@@ -78,6 +78,7 @@ pub fn setup(
     commands.insert_resource(MouseSettings {
         speed: 10.0,
         sensitivity: 0.02,
+        ui_mode: false,
     });
 }
 
@@ -119,6 +120,7 @@ fn uv_debug_texture() -> Image {
 pub struct MouseSettings {
     speed: f32,
     sensitivity: f32,
+    ui_mode: bool,
 }
 
 pub fn camera_movement(
@@ -151,6 +153,14 @@ pub fn camera_movement(
     transform.translation += translation.x * right + translation.z * forward;
 }
 
+pub fn input_mode(mut ms: ResMut<MouseSettings>,
+    keyboard_input: Res<Input<KeyCode>>
+) {
+    if keyboard_input.just_released(KeyCode::Grave) {
+        ms.ui_mode = !ms.ui_mode;
+    }
+}
+
 // first person camera
 pub fn mouse_look(
     time: Res<Time>,
@@ -158,6 +168,10 @@ pub fn mouse_look(
     mut primary_query: Query<&mut Window, With<PrimaryWindow>>,
     mut query: Query<&mut Transform, With<Camera>>,
 ) {
+    if ms.ui_mode {
+        return;
+    }
+
     let Ok(mut primary) = primary_query.get_single_mut() else {
         return;
     };
