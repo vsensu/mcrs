@@ -162,6 +162,10 @@ pub fn mouse_look(
         return;
     };
 
+    if !primary.focused {
+        return;
+    }
+
     let delta = time.delta_seconds();
     let size = Vec2 {
         x: primary.width(),
