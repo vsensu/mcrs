@@ -9,10 +9,13 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
-jobs: # here we are specifing all of the jobs
-  build: # name of the job
-    runs-on: ubuntu-latest # system, linux is the cheapest
-    timeout-minutes: 30 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency: 
+      group: ${{ github.head_ref || github.run_id }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v3
       - uses: actions/cache@v3
@@ -27,10 +30,12 @@ jobs: # here we are specifing all of the jobs
       - uses: dtolnay/rust-toolchain@stable
       - name: Install alsa and udev
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Install wasm target
+        run: rustup target install wasm32-unknown-unknown && cargo install -f wasm-bindgen-cli
       - name: Build
-        run: cargo build --release --target wasm32-unknown-unknown && wasm-bindgen --out-dir ./out --target web ./target/wasm32-unknown-unknown/release/mcrs.wasm  
+        run: cargo build --release --target wasm32-unknown-unknown && wasm-bindgen --out-dir ./out/ --target web ./target/wasm32-unknown-unknown/release/mcrs.wasm  
       - name: Copy
-        run: cp -R assets out && cp index.html out/index.html
+        run: cp -R assets out/ && cp index.html out/index.html && ls -R out
       - name: Push
         uses: s0/git-publish-subdir-action@develop
         env:
