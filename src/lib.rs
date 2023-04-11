@@ -1,3 +1,5 @@
+mod voxel;
+
 use std::f32::consts::PI;
 
 use bevy::{
