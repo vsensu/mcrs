@@ -22,8 +22,8 @@ fn main() {
         .add_plugins(LookTransformPlugin)
         .add_plugins(FpsCameraPlugin::default())
         .add_systems(Startup, mcrs::setup)
+        .add_systems(PostStartup, mcrs::post_setup)
         .add_systems(Update, bevy::window::close_on_esc)
-        .add_systems(Update, mcrs::rotate)
         .add_systems(Update, mcrs::input_mode)
         .run();
 }
