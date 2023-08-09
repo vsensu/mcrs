@@ -18,12 +18,12 @@ fn main() {
                     ..default()
                 }),
         )
-        .add_plugin(WorldInspectorPlugin::new())
-        .add_plugin(LookTransformPlugin)
-        .add_plugin(FpsCameraPlugin::default())
-        .add_startup_system(mcrs::setup)
-        .add_system(bevy::window::close_on_esc)
-        .add_system(mcrs::rotate)
-        .add_system(mcrs::input_mode)
+        .add_plugins(WorldInspectorPlugin::new())
+        .add_plugins(LookTransformPlugin)
+        .add_plugins(FpsCameraPlugin::default())
+        .add_systems(Startup, mcrs::setup)
+        .add_systems(Update, bevy::window::close_on_esc)
+        .add_systems(Update, mcrs::rotate)
+        .add_systems(Update, mcrs::input_mode)
         .run();
 }
