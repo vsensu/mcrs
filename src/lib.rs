@@ -1,5 +1,7 @@
 mod voxel;
 
+use std::f32::consts::PI;
+
 use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
@@ -35,6 +37,14 @@ pub fn setup(
     commands.spawn(PbrBundle {
         mesh: meshes.add(shape::Plane::from_size(50.0).into()),
         material: materials.add(Color::SILVER.into()),
+        ..default()
+    });
+
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(voxel::Block::default().into()),
+        material: materials.add(Color::GREEN.into()),
+        transform: Transform::from_xyz(0.0, 5.0, 0.0)
+            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
         ..default()
     });
 
