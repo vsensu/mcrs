@@ -33,18 +33,16 @@ pub fn setup(
         ..default()
     });
 
-    // ground plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(shape::Plane::from_size(50.0).into()),
-        material: materials.add(Color::SILVER.into()),
-        ..default()
-    });
+    // // ground plane
+    // commands.spawn(PbrBundle {
+    //     mesh: meshes.add(shape::Plane::from_size(50.0).into()),
+    //     material: materials.add(Color::SILVER.into()),
+    //     ..default()
+    // });
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(voxel::Block::default().into()),
-        material: materials.add(Color::GREEN.into()),
-        transform: Transform::from_xyz(0.0, 5.0, 0.0)
-            .with_rotation(Quat::from_rotation_x(-PI / 4.)),
+        mesh: meshes.add(voxel::ChunkData::default().into()),
+        material: materials.add(Color::SILVER.into()),
         ..default()
     });
 
@@ -53,7 +51,7 @@ pub fn setup(
         .insert(FpsCameraBundle::new(
             FpsCameraController::default(),
             Vec3::new(0.0, 5.0, 5.0),
-            Vec3::new(0.0, 5.0, 0.0),
+            Vec3::new(0.0, 2.0, 0.0),
             Vec3::Y,
         ));
 
