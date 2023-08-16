@@ -34,19 +34,18 @@ pub fn setup(
         ..default()
     });
 
-    // // ground plane
-    // commands.spawn(PbrBundle {
-    //     mesh: meshes.add(shape::Plane::from_size(50.0).into()),
-    //     material: materials.add(Color::SILVER.into()),
-    //     ..default()
-    // });
-    (0..4).for_each(|x| {
-        (0..4).for_each(|z| {
-            (0..voxel::CHUNK_SIZE).for_each(|y| {
+    (0..voxel::WORLD_SIZE).for_each(|x| {
+        (0..voxel::WORLD_SIZE).for_each(|z| {
+            (0..(voxel::HEIGHT_LIMIT / voxel::CHUNK_SIZE)).for_each(|y| {
                 commands.spawn(PbrBundle {
-                    mesh: meshes
-                        .add(voxel::ChunkData::new(ChunkIndex { x, y: y as i32, z }).into()),
-                    // mesh: meshes.add(voxel::ChunkData::new(ChunkIndex { x: 0, y, z: 0 }).into()),
+                    mesh: meshes.add(
+                        voxel::ChunkData::new(ChunkIndex {
+                            x: x as i32,
+                            y: y as i32,
+                            z: z as i32,
+                        })
+                        .into(),
+                    ),
                     material: materials.add(Color::SILVER.into()),
                     ..default()
                 });

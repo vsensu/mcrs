@@ -20,9 +20,10 @@ struct ChunkMesh {
     indices: Vec<index_t>,
 }
 
-const WORLD_SIZE: usize = 4; // 4 chunks in each direction
+pub const WORLD_SIZE: usize = 4; // 4 chunks in each direction
 pub const CHUNK_SIZE: usize = 16; // 16 voxels in each direction
 const WAVE_LENGTH: usize = WORLD_SIZE * CHUNK_SIZE; // voxel wave length in each direction
+pub const HEIGHT_LIMIT: usize = 256; // height limit of the world
 
 // cube cornors
 const CORNORS: [Vec3; 8] = [
@@ -227,12 +228,32 @@ impl From<ChunkData> for Mesh {
                         chunk.index.z as f32 * CHUNK_SIZE as f32,
                     ) + Vec3::new(x as f32, y as f32, z as f32);
 
-                    add_face(&mut mesh_data, &CubeFace::TOP_FACE, offset);
-                    add_face(&mut mesh_data, &CubeFace::BOTTOM_FACE, offset);
-                    add_face(&mut mesh_data, &CubeFace::LEFT_FACE, offset);
-                    add_face(&mut mesh_data, &CubeFace::RIGHT_FACE, offset);
-                    add_face(&mut mesh_data, &CubeFace::FRONT_FACE, offset);
-                    add_face(&mut mesh_data, &CubeFace::BACK_FACE, offset);
+                    if y == CHUNK_SIZE - 1 || (y < CHUNK_SIZE - 1 && chunk.voxels[x][y + 1][z] == 0)
+                    {
+                        add_face(&mut mesh_data, &CubeFace::TOP_FACE, offset);
+                    }
+
+                    if y == 0 || (y > 0 && chunk.voxels[x][y - 1][z] == 0) {
+                        add_face(&mut mesh_data, &CubeFace::BOTTOM_FACE, offset);
+                    }
+
+                    if x == 0 || (x > 0 && chunk.voxels[x - 1][y][z] == 0) {
+                        add_face(&mut mesh_data, &CubeFace::LEFT_FACE, offset);
+                    }
+
+                    if x == CHUNK_SIZE - 1 || (x < CHUNK_SIZE - 1 && chunk.voxels[x + 1][y][z] == 0)
+                    {
+                        add_face(&mut mesh_data, &CubeFace::RIGHT_FACE, offset);
+                    }
+
+                    if z == CHUNK_SIZE - 1 || (z < CHUNK_SIZE - 1 && chunk.voxels[x][y][z + 1] == 0)
+                    {
+                        add_face(&mut mesh_data, &CubeFace::FRONT_FACE, offset);
+                    }
+
+                    if z == 0 || (z > 0 && chunk.voxels[x][y][z - 1] == 0) {
+                        add_face(&mut mesh_data, &CubeFace::BACK_FACE, offset);
+                    }
                 })
             })
         });
