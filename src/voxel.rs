@@ -3,6 +3,9 @@ use bevy::{
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 
+use lerp::Lerp;
+use noise::{NoiseFn, Perlin, Seedable};
+
 #[allow(non_camel_case_types)]
 type vertex_t = u32;
 
@@ -16,6 +19,10 @@ struct ChunkMesh {
     vertices: Vec<vertex_t>,
     indices: Vec<index_t>,
 }
+
+const WORLD_SIZE: usize = 4; // 4 chunks in each direction
+pub const CHUNK_SIZE: usize = 16; // 16 voxels in each direction
+const WAVE_LENGTH: usize = WORLD_SIZE * CHUNK_SIZE; // voxel wave length in each direction
 
 // cube cornors
 const CORNORS: [Vec3; 8] = [
@@ -151,50 +158,90 @@ impl From<Block> for Mesh {
 pub struct ChunkData {
     pub level: u32, // level or lod, normally 0
     pub index: ChunkIndex,
-    pub voxels: [[[u8; 16]; 16]; 16], // row(z), col(x), depth(y)
+    pub voxels: [[[u8; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE], // row(z), col(x), depth(y)
 }
 
 impl ChunkData {
-    pub fn new() -> Self {
+    pub fn new(chunk_index: ChunkIndex) -> Self {
+        let perlin = Perlin::new(123);
+
+        let chunk_offset = Vec3::new(
+            chunk_index.x as f32 * CHUNK_SIZE as f32,
+            chunk_index.y as f32 * CHUNK_SIZE as f32,
+            chunk_index.z as f32 * CHUNK_SIZE as f32,
+        );
+
+        let mut voxels = [[[0; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
+        (0..CHUNK_SIZE).for_each(|x| {
+            (0..CHUNK_SIZE).for_each(|z| {
+                let val = perlin.get([
+                    (x as f64 + chunk_offset.x as f64) / WAVE_LENGTH as f64,
+                    (z as f64 + chunk_offset.z as f64) / WAVE_LENGTH as f64,
+                    0.0,
+                ]);
+                let land = 48.0.lerp(128.0, (val + 1.0) / 2.0) as i32;
+                // println!(
+                //     "Land at ({}, {}): {}",
+                //     x + chunk_offset.x as usize,
+                //     z + chunk_offset.z as usize,
+                //     land
+                // );
+                (0..CHUNK_SIZE).for_each(|y: usize| {
+                    if (y + chunk_offset.y as usize) as i32 > land {
+                        voxels[x][y][z] = 0;
+                    } else {
+                        voxels[x][y][z] = 1;
+                    }
+                })
+            })
+        });
+
         ChunkData {
             level: 0,
-            index: ChunkIndex { x: 0, y: 0, z: 0 },
-            voxels: [[[0; 16]; 16]; 16],
+            index: chunk_index,
+            voxels,
         }
     }
 }
 
 impl Default for ChunkData {
     fn default() -> Self {
-        ChunkData::new()
+        ChunkData::new(ChunkIndex { x: 0, y: 0, z: 0 })
     }
 }
 
 impl From<ChunkData> for Mesh {
     fn from(chunk: ChunkData) -> Self {
-        let land_depth = 0;
-        let mut meshData = MeshData::new();
-        for (y, depth) in chunk.voxels.iter().enumerate() {
-            if y == land_depth {
-                for (x, col) in depth.iter().enumerate() {
-                    for (z, &elem) in col.iter().enumerate() {
-                        println!("Element at ({}, {}, {}): {}", x, y, z, elem);
-                        add_face(
-                            &mut meshData,
-                            &CubeFace::TOP_FACE,
-                            Vec3::new(x as f32, y as f32, z as f32),
-                        );
+        let mut mesh_data = MeshData::new();
+        (0..CHUNK_SIZE).for_each(|y| {
+            (0..CHUNK_SIZE).for_each(|z| {
+                (0..CHUNK_SIZE).for_each(|x| {
+                    // println!("Element at ({}, {}, {}): {}", x, y, z, elem);
+                    if chunk.voxels[x][y][z] == 0 {
+                        return;
                     }
-                }
-            }
-        }
 
-        let indices = Indices::U32(meshData.indices);
+                    let offset = Vec3::new(
+                        chunk.index.x as f32 * CHUNK_SIZE as f32,
+                        chunk.index.y as f32 * CHUNK_SIZE as f32,
+                        chunk.index.z as f32 * CHUNK_SIZE as f32,
+                    ) + Vec3::new(x as f32, y as f32, z as f32);
+
+                    add_face(&mut mesh_data, &CubeFace::TOP_FACE, offset);
+                    add_face(&mut mesh_data, &CubeFace::BOTTOM_FACE, offset);
+                    add_face(&mut mesh_data, &CubeFace::LEFT_FACE, offset);
+                    add_face(&mut mesh_data, &CubeFace::RIGHT_FACE, offset);
+                    add_face(&mut mesh_data, &CubeFace::FRONT_FACE, offset);
+                    add_face(&mut mesh_data, &CubeFace::BACK_FACE, offset);
+                })
+            })
+        });
+        let indices = Indices::U32(mesh_data.indices);
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(indices));
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, meshData.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, meshData.normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh_data.positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh_data.normals);
         // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, meshData.uvs);
         mesh
     }

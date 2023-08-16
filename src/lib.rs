@@ -11,6 +11,7 @@ use smooth_bevy_cameras::{
     controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin},
     LookTransformPlugin,
 };
+use voxel::ChunkIndex;
 
 /// A marker component for our shapes so we can query them separately from the ground plane
 #[derive(Component)]
@@ -29,7 +30,7 @@ pub fn setup(
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(8.0, 16.0, 8.0),
+        transform: Transform::from_xyz(8.0, 128.0, 8.0),
         ..default()
     });
 
@@ -39,18 +40,25 @@ pub fn setup(
     //     material: materials.add(Color::SILVER.into()),
     //     ..default()
     // });
-
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(voxel::ChunkData::default().into()),
-        material: materials.add(Color::SILVER.into()),
-        ..default()
+    (0..4).for_each(|x| {
+        (0..4).for_each(|z| {
+            (0..voxel::CHUNK_SIZE).for_each(|y| {
+                commands.spawn(PbrBundle {
+                    mesh: meshes
+                        .add(voxel::ChunkData::new(ChunkIndex { x, y: y as i32, z }).into()),
+                    // mesh: meshes.add(voxel::ChunkData::new(ChunkIndex { x: 0, y, z: 0 }).into()),
+                    material: materials.add(Color::SILVER.into()),
+                    ..default()
+                });
+            });
+        });
     });
 
     commands
         .spawn(Camera3dBundle::default())
         .insert(FpsCameraBundle::new(
             FpsCameraController::default(),
-            Vec3::new(0.0, 5.0, 5.0),
+            Vec3::new(0.0, 128.0, 5.0),
             Vec3::new(0.0, 2.0, 0.0),
             Vec3::Y,
         ));
