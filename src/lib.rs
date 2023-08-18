@@ -53,6 +53,16 @@ pub fn setup(
                     material: materials.add(Color::SILVER.into()),
                     ..default()
                 });
+                commands.spawn(PbrBundle {
+                    mesh: meshes.add(voxel::greedy_meshing(&voxel::ChunkData::new(ChunkIndex {
+                        x: x as i32,
+                        y: y as i32,
+                        z: z as i32,
+                    }))),
+                    material: materials.add(Color::GREEN.into()),
+                    // transform: Transform::from_xyz(16.0, 0.0, 0.0),
+                    ..default()
+                });
             });
         });
     });
