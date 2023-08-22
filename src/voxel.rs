@@ -282,38 +282,38 @@ pub fn greedy_meshing(chunk: &ChunkData) -> Mesh {
         })
     });
 
-    // (0..CHUNK_SIZE).for_each(|y| {
-    //     (0..CHUNK_SIZE).for_each(|x| {
-    //         (1..CHUNK_SIZE).for_each(|z| {
-    //             if sizes[x][y][z] == Vec3::ZERO || sizes[x][y][z - 1] == Vec3::ZERO {
-    //                 return;
-    //             }
-    //             if can_merge_mesh(chunk.voxels[x][y][z], chunk.voxels[x][y][z - 1])
-    //                 && sizes[x][y][z - 1].x == sizes[x][y][z].x
-    //             {
-    //                 sizes[x][y][z].z += sizes[x][y][z - 1].z;
-    //                 sizes[x][y][z - 1] = Vec3::ZERO;
-    //             }
-    //         })
-    //     })
-    // });
+    (0..CHUNK_SIZE).for_each(|y| {
+        (0..CHUNK_SIZE).for_each(|x| {
+            (1..CHUNK_SIZE).for_each(|z| {
+                if sizes[x][y][z] == Vec3::ZERO || sizes[x][y][z - 1] == Vec3::ZERO {
+                    return;
+                }
+                if can_merge_mesh(chunk.voxels[x][y][z], chunk.voxels[x][y][z - 1])
+                    && sizes[x][y][z - 1].x == sizes[x][y][z].x
+                {
+                    sizes[x][y][z].z += sizes[x][y][z - 1].z;
+                    sizes[x][y][z - 1] = Vec3::ZERO;
+                }
+            })
+        })
+    });
 
-    // (0..CHUNK_SIZE).for_each(|x| {
-    //     (0..CHUNK_SIZE).for_each(|z| {
-    //         (1..CHUNK_SIZE).for_each(|y| {
-    //             if sizes[x][y][z] == Vec3::ZERO || sizes[x][y - 1][z] == Vec3::ZERO {
-    //                 return;
-    //             }
-    //             if can_merge_mesh(chunk.voxels[x][y][z], chunk.voxels[x][y - 1][z])
-    //                 && sizes[x][y - 1][z].x == sizes[x][y][z].x
-    //                 && sizes[x][y - 1][z].z == sizes[x][y][z].z
-    //             {
-    //                 sizes[x][y][z].y += sizes[x][y - 1][z].y;
-    //                 sizes[x][y - 1][z] = Vec3::ZERO;
-    //             }
-    //         })
-    //     })
-    // });
+    (0..CHUNK_SIZE).for_each(|x| {
+        (0..CHUNK_SIZE).for_each(|z| {
+            (1..CHUNK_SIZE).for_each(|y| {
+                if sizes[x][y][z] == Vec3::ZERO || sizes[x][y - 1][z] == Vec3::ZERO {
+                    return;
+                }
+                if can_merge_mesh(chunk.voxels[x][y][z], chunk.voxels[x][y - 1][z])
+                    && sizes[x][y - 1][z].x == sizes[x][y][z].x
+                    && sizes[x][y - 1][z].z == sizes[x][y][z].z
+                {
+                    sizes[x][y][z].y += sizes[x][y - 1][z].y;
+                    sizes[x][y - 1][z] = Vec3::ZERO;
+                }
+            })
+        })
+    });
 
     let mut mesh_data = MeshData::new();
     (0..CHUNK_SIZE).for_each(|y| {
@@ -348,7 +348,9 @@ pub fn greedy_meshing(chunk: &ChunkData) -> Mesh {
                 add_face(
                     &mut mesh_data,
                     &CubeFace::BOTTOM_FACE,
-                    offset + Vec3::new(-(sizes[x][y][z].x - 1.0), 0.0, -(sizes[x][y][z].z - 1.0)),
+                    offset
+                        + Vec3::new(-(sizes[x][y][z].x - 1.0), 0.0, -(sizes[x][y][z].z - 1.0))
+                        + Vec3::new(0.0, -(sizes[x][y][z].y - 1.0), 0.0), // because after merge, the cell has a size of non-zero is the top-right front cell
                     Vec3::new(sizes[x][y][z].x, 1.0, sizes[x][y][z].z),
                 );
                 // }
@@ -357,7 +359,9 @@ pub fn greedy_meshing(chunk: &ChunkData) -> Mesh {
                 add_face(
                     &mut mesh_data,
                     &CubeFace::LEFT_FACE,
-                    offset + Vec3::new(0.0, -(sizes[x][y][z].y - 1.0), -(sizes[x][y][z].z - 1.0)),
+                    offset
+                        + Vec3::new(0.0, -(sizes[x][y][z].y - 1.0), -(sizes[x][y][z].z - 1.0))
+                        + Vec3::new(-(sizes[x][y][z].x - 1.0), 0.0, 0.0),
                     Vec3::new(1.0, sizes[x][y][z].y, sizes[x][y][z].z),
                 );
                 // }
@@ -386,7 +390,9 @@ pub fn greedy_meshing(chunk: &ChunkData) -> Mesh {
                 add_face(
                     &mut mesh_data,
                     &CubeFace::BACK_FACE,
-                    offset + Vec3::new(-(sizes[x][y][z].x - 1.0), -(sizes[x][y][z].y - 1.0), 0.0),
+                    offset
+                        + Vec3::new(-(sizes[x][y][z].x - 1.0), -(sizes[x][y][z].y - 1.0), 0.0)
+                        + Vec3::new(0.0, 0.0, -(sizes[x][y][z].z - 1.0)),
                     Vec3::new(sizes[x][y][z].x, sizes[x][y][z].y, 1.0),
                 );
                 // }

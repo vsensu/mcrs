@@ -41,18 +41,18 @@ pub fn setup(
     (0..voxel::WORLD_SIZE).for_each(|x| {
         (0..voxel::WORLD_SIZE).for_each(|z| {
             (0..(voxel::HEIGHT_LIMIT / voxel::CHUNK_SIZE)).for_each(|y| {
-                commands.spawn(PbrBundle {
-                    mesh: meshes.add(
-                        voxel::ChunkData::new(ChunkIndex {
-                            x: x as i32,
-                            y: y as i32,
-                            z: z as i32,
-                        })
-                        .into(),
-                    ),
-                    material: materials.add(Color::SILVER.into()),
-                    ..default()
-                });
+                // commands.spawn(PbrBundle {
+                //     mesh: meshes.add(
+                //         voxel::ChunkData::new(ChunkIndex {
+                //             x: x as i32,
+                //             y: y as i32,
+                //             z: z as i32,
+                //         })
+                //         .into(),
+                //     ),
+                //     material: materials.add(Color::SILVER.into()),
+                //     ..default()
+                // });
                 commands.spawn(PbrBundle {
                     mesh: meshes.add(voxel::greedy_meshing(&voxel::ChunkData::new(ChunkIndex {
                         x: x as i32,
