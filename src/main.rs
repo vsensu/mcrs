@@ -1,7 +1,6 @@
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
-use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin};
 use bevy::window::PresentMode;
 use bevy_inspector_egui::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
@@ -23,12 +22,6 @@ fn main() {
                         ..default()
                     }),
                     ..default()
-                })
-                .set(RenderPlugin {
-                    wgpu_settings: WgpuSettings {
-                        features: WgpuFeatures::POLYGON_MODE_LINE,
-                        ..default()
-                    },
                 }),
             WireframePlugin,
         ))
