@@ -334,68 +334,237 @@ pub fn greedy_meshing(chunk: &ChunkData) -> Mesh {
                     chunk.index.z as f32 * CHUNK_SIZE as f32,
                 ) + Vec3::new(x as f32, y as f32, z as f32);
 
-                // if y == CHUNK_SIZE - 1 || (y < CHUNK_SIZE - 1 && chunk.voxels[x][y + 1][z] == 0)
-                // {
-                add_face(
-                    &mut mesh_data,
-                    &CubeFace::TOP_FACE,
-                    offset + Vec3::new(-(sizes[x][y][z].x - 1.0), 0.0, -(sizes[x][y][z].z - 1.0)),
-                    Vec3::new(sizes[x][y][z].x, 1.0, sizes[x][y][z].z),
-                );
-                // }
+                // top face of the chunk
+                if y == CHUNK_SIZE - 1 {
+                    add_face(
+                        &mut mesh_data,
+                        &CubeFace::TOP_FACE,
+                        offset
+                            + Vec3::new(-(sizes[x][y][z].x - 1.0), 0.0, -(sizes[x][y][z].z - 1.0)),
+                        Vec3::new(sizes[x][y][z].x, 1.0, sizes[x][y][z].z),
+                    );
+                }
 
-                // if y == 0 || (y > 0 && chunk.voxels[x][y - 1][z] == 0) {
-                add_face(
-                    &mut mesh_data,
-                    &CubeFace::BOTTOM_FACE,
-                    offset
-                        + Vec3::new(-(sizes[x][y][z].x - 1.0), 0.0, -(sizes[x][y][z].z - 1.0))
-                        + Vec3::new(0.0, -(sizes[x][y][z].y - 1.0), 0.0), // because after merge, the cell has a size of non-zero is the top-right front cell
-                    Vec3::new(sizes[x][y][z].x, 1.0, sizes[x][y][z].z),
-                );
-                // }
+                if y < CHUNK_SIZE - 1
+                // && sizes[x][y + 1][z].x >= sizes[x][y][z].x  // can't simple check the cell above, because the cell above may be merged with other cells
+                // && sizes[x][y + 1][z].z >= sizes[x][y][z].z)
+                {
+                    // check if the top surface is exposed
+                    // if not, skip the top face
+                    let mut is_exposed = false;
+                    'check_surface: for z1 in (1 + z - sizes[x][y][z].z as usize)..=z {
+                        for x1 in (1 + x - sizes[x][y][z].x as usize)..=x {
+                            if chunk.voxels[x1][y + 1][z1] == 0 {
+                                is_exposed = true;
+                                break 'check_surface;
+                            }
+                        }
+                    }
+                    if is_exposed {
+                        add_face(
+                            &mut mesh_data,
+                            &CubeFace::TOP_FACE,
+                            offset
+                                + Vec3::new(
+                                    -(sizes[x][y][z].x - 1.0),
+                                    0.0,
+                                    -(sizes[x][y][z].z - 1.0),
+                                ),
+                            Vec3::new(sizes[x][y][z].x, 1.0, sizes[x][y][z].z),
+                        );
+                    }
+                }
 
-                // if x == 0 || (x > 0 && chunk.voxels[x - 1][y][z] == 0) {
-                add_face(
-                    &mut mesh_data,
-                    &CubeFace::LEFT_FACE,
-                    offset
-                        + Vec3::new(0.0, -(sizes[x][y][z].y - 1.0), -(sizes[x][y][z].z - 1.0))
-                        + Vec3::new(-(sizes[x][y][z].x - 1.0), 0.0, 0.0),
-                    Vec3::new(1.0, sizes[x][y][z].y, sizes[x][y][z].z),
-                );
-                // }
+                // bottom face of the chunk
+                if 1 + y - sizes[x][y][z].y as usize == 0 {
+                    add_face(
+                        &mut mesh_data,
+                        &CubeFace::BOTTOM_FACE,
+                        offset
+                            + Vec3::new(-(sizes[x][y][z].x - 1.0), 0.0, -(sizes[x][y][z].z - 1.0))
+                            + Vec3::new(0.0, -(sizes[x][y][z].y - 1.0), 0.0), // because after merge, the cell has a size of non-zero is the top-right front cell
+                        Vec3::new(sizes[x][y][z].x, 1.0, sizes[x][y][z].z),
+                    );
+                } else {
+                    // check if the bottom surface is exposed
+                    // if not, skip the bottom face
+                    let mut is_exposed = false;
+                    'check_surface: for z1 in (1 + z - sizes[x][y][z].z as usize)..=z {
+                        for x1 in (1 + x - sizes[x][y][z].x as usize)..=x {
+                            if chunk.voxels[x1][y - sizes[x][y][z].y as usize][z1] == 0 {
+                                is_exposed = true;
+                                break 'check_surface;
+                            }
+                        }
+                    }
 
-                // if x == CHUNK_SIZE - 1 || (x < CHUNK_SIZE - 1 && chunk.voxels[x + 1][y][z] == 0)
-                // {
-                add_face(
-                    &mut mesh_data,
-                    &CubeFace::RIGHT_FACE,
-                    offset + Vec3::new(0.0, -(sizes[x][y][z].y - 1.0), -(sizes[x][y][z].z - 1.0)),
-                    Vec3::new(1.0, sizes[x][y][z].y, sizes[x][y][z].z),
-                );
-                // }
+                    if is_exposed {
+                        add_face(
+                            &mut mesh_data,
+                            &CubeFace::BOTTOM_FACE,
+                            offset
+                                + Vec3::new(
+                                    -(sizes[x][y][z].x - 1.0),
+                                    0.0,
+                                    -(sizes[x][y][z].z - 1.0),
+                                )
+                                + Vec3::new(0.0, -(sizes[x][y][z].y - 1.0), 0.0), // because after merge, the cell has a size of non-zero is the top-right front cell
+                            Vec3::new(sizes[x][y][z].x, 1.0, sizes[x][y][z].z),
+                        );
+                    }
+                }
 
-                // if z == CHUNK_SIZE - 1 || (z < CHUNK_SIZE - 1 && chunk.voxels[x][y][z + 1] == 0)
-                // {
-                add_face(
-                    &mut mesh_data,
-                    &CubeFace::FRONT_FACE,
-                    offset + Vec3::new(-(sizes[x][y][z].x - 1.0), -(sizes[x][y][z].y - 1.0), 0.0),
-                    Vec3::new(sizes[x][y][z].x, sizes[x][y][z].y, 1.0),
-                );
-                // }
+                // left face of the chunk
+                if 1 + x - sizes[x][y][z].x as usize == 0 {
+                    add_face(
+                        &mut mesh_data,
+                        &CubeFace::LEFT_FACE,
+                        offset
+                            + Vec3::new(0.0, -(sizes[x][y][z].y - 1.0), -(sizes[x][y][z].z - 1.0))
+                            + Vec3::new(-(sizes[x][y][z].x - 1.0), 0.0, 0.0),
+                        Vec3::new(1.0, sizes[x][y][z].y, sizes[x][y][z].z),
+                    );
+                } else {
+                    // check if the left surface is exposed
+                    // if not, skip the left face
+                    let mut is_exposed = false;
+                    'check_surface: for z1 in (1 + z - sizes[x][y][z].z as usize)..=z {
+                        for y1 in (1 + y - sizes[x][y][z].y as usize)..=y {
+                            if chunk.voxels[x - sizes[x][y][z].x as usize][y1][z1] == 0 {
+                                is_exposed = true;
+                                break 'check_surface;
+                            }
+                        }
+                    }
 
-                // if z == 0 || (z > 0 && chunk.voxels[x][y][z - 1] == 0) {
-                add_face(
-                    &mut mesh_data,
-                    &CubeFace::BACK_FACE,
-                    offset
-                        + Vec3::new(-(sizes[x][y][z].x - 1.0), -(sizes[x][y][z].y - 1.0), 0.0)
-                        + Vec3::new(0.0, 0.0, -(sizes[x][y][z].z - 1.0)),
-                    Vec3::new(sizes[x][y][z].x, sizes[x][y][z].y, 1.0),
-                );
-                // }
+                    if is_exposed {
+                        add_face(
+                            &mut mesh_data,
+                            &CubeFace::LEFT_FACE,
+                            offset
+                                + Vec3::new(
+                                    0.0,
+                                    -(sizes[x][y][z].y - 1.0),
+                                    -(sizes[x][y][z].z - 1.0),
+                                )
+                                + Vec3::new(-(sizes[x][y][z].x - 1.0), 0.0, 0.0),
+                            Vec3::new(1.0, sizes[x][y][z].y, sizes[x][y][z].z),
+                        );
+                    }
+                }
+
+                // right face of the chunk
+                if x == CHUNK_SIZE - 1 {
+                    add_face(
+                        &mut mesh_data,
+                        &CubeFace::RIGHT_FACE,
+                        offset
+                            + Vec3::new(0.0, -(sizes[x][y][z].y - 1.0), -(sizes[x][y][z].z - 1.0)),
+                        Vec3::new(1.0, sizes[x][y][z].y, sizes[x][y][z].z),
+                    );
+                } else {
+                    // check if the right surface is exposed
+                    // if not, skip the right face
+                    let mut is_exposed = false;
+                    'check_surface: for z1 in (1 + z - sizes[x][y][z].z as usize)..=z {
+                        for y1 in (1 + y - sizes[x][y][z].y as usize)..=y {
+                            if chunk.voxels[x + 1][y1][z1] == 0 {
+                                is_exposed = true;
+                                break 'check_surface;
+                            }
+                        }
+                    }
+
+                    if is_exposed {
+                        add_face(
+                            &mut mesh_data,
+                            &CubeFace::RIGHT_FACE,
+                            offset
+                                + Vec3::new(
+                                    0.0,
+                                    -(sizes[x][y][z].y - 1.0),
+                                    -(sizes[x][y][z].z - 1.0),
+                                ),
+                            Vec3::new(1.0, sizes[x][y][z].y, sizes[x][y][z].z),
+                        );
+                    }
+                }
+
+                // front face of the chunk
+                if z == CHUNK_SIZE - 1 {
+                    add_face(
+                        &mut mesh_data,
+                        &CubeFace::FRONT_FACE,
+                        offset
+                            + Vec3::new(-(sizes[x][y][z].x - 1.0), -(sizes[x][y][z].y - 1.0), 0.0),
+                        Vec3::new(sizes[x][y][z].x, sizes[x][y][z].y, 1.0),
+                    );
+                } else {
+                    // check if the front surface is exposed
+                    // if not, skip the front face
+                    let mut is_exposed = false;
+                    'check_surface: for x1 in (1 + x - sizes[x][y][z].x as usize)..=x {
+                        for y1 in (1 + y - sizes[x][y][z].y as usize)..=y {
+                            if chunk.voxels[x1][y1][z + 1] == 0 {
+                                is_exposed = true;
+                                break 'check_surface;
+                            }
+                        }
+                    }
+
+                    if is_exposed {
+                        add_face(
+                            &mut mesh_data,
+                            &CubeFace::FRONT_FACE,
+                            offset
+                                + Vec3::new(
+                                    -(sizes[x][y][z].x - 1.0),
+                                    -(sizes[x][y][z].y - 1.0),
+                                    0.0,
+                                ),
+                            Vec3::new(sizes[x][y][z].x, sizes[x][y][z].y, 1.0),
+                        );
+                    }
+                }
+
+                // back face of the chunk
+                if 1 + z - sizes[x][y][z].z as usize == 0 {
+                    add_face(
+                        &mut mesh_data,
+                        &CubeFace::BACK_FACE,
+                        offset
+                            + Vec3::new(-(sizes[x][y][z].x - 1.0), -(sizes[x][y][z].y - 1.0), 0.0)
+                            + Vec3::new(0.0, 0.0, -(sizes[x][y][z].z - 1.0)),
+                        Vec3::new(sizes[x][y][z].x, sizes[x][y][z].y, 1.0),
+                    );
+                } else {
+                    // check if the back surface is exposed
+                    // if not, skip the back face
+                    let mut is_exposed = false;
+                    'check_surface: for x1 in (1 + x - sizes[x][y][z].x as usize)..=x {
+                        for y1 in (1 + y - sizes[x][y][z].y as usize)..=y {
+                            if chunk.voxels[x1][y1][z - sizes[x][y][z].z as usize] == 0 {
+                                is_exposed = true;
+                                break 'check_surface;
+                            }
+                        }
+                    }
+
+                    if is_exposed {
+                        add_face(
+                            &mut mesh_data,
+                            &CubeFace::BACK_FACE,
+                            offset
+                                + Vec3::new(
+                                    -(sizes[x][y][z].x - 1.0),
+                                    -(sizes[x][y][z].y - 1.0),
+                                    0.0,
+                                )
+                                + Vec3::new(0.0, 0.0, -(sizes[x][y][z].z - 1.0)),
+                            Vec3::new(sizes[x][y][z].x, sizes[x][y][z].y, 1.0),
+                        );
+                    }
+                }
             })
         })
     });
