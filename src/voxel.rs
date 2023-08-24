@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use bevy::{
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
@@ -232,6 +234,7 @@ impl CubeFace {
     };
 }
 
+#[derive(Debug, Clone)]
 struct MeshData {
     positions: Vec<Vec3>,
     indices: Vec<u32>,
@@ -568,6 +571,7 @@ pub fn greedy_meshing(chunk: &ChunkData) -> Mesh {
             })
         })
     });
+    let mesh_data = merge_vertex(&mesh_data, 0.01);
     let indices = Indices::U32(mesh_data.indices);
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
@@ -576,4 +580,27 @@ pub fn greedy_meshing(chunk: &ChunkData) -> Mesh {
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh_data.normals);
     // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, meshData.uvs);
     mesh
+}
+
+fn merge_vertex(source: &MeshData, threshold: f32) -> MeshData {
+    let mut dest = MeshData::new();
+    let mut vertex_map = HashMap::new();
+    (0..source.positions.len()).for_each(|i| {
+        for j in 0..dest.positions.len() {
+            if Vec3::length_squared(source.positions[i] - dest.positions[j]) < threshold {
+                vertex_map.insert(i, j);
+                break;
+            }
+        }
+
+        vertex_map.insert(i, dest.positions.len());
+        dest.positions.push(source.positions[i]);
+    });
+
+    (0..source.indices.len()).for_each(|i| {
+        dest.indices
+            .push(vertex_map[&(source.indices[i] as usize)] as u32);
+    });
+    dest.normals = source.normals.clone();
+    dest
 }
