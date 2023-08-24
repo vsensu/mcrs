@@ -14,6 +14,9 @@ use smooth_bevy_cameras::{
     LookTransformPlugin,
 };
 
+use bevy_inspector_egui::prelude::*;
+use bevy_inspector_egui::quick::ResourceInspectorPlugin;
+
 use voxel::ChunkIndex;
 
 /// A marker component for our shapes so we can query them separately from the ground plane
@@ -53,16 +56,21 @@ pub fn setup(
                 //     material: materials.add(Color::SILVER.into()),
                 //     ..default()
                 // });
-                commands.spawn(PbrBundle {
-                    mesh: meshes.add(voxel::greedy_meshing(&voxel::ChunkData::new(ChunkIndex {
-                        x: x as i32,
-                        y: y as i32,
-                        z: z as i32,
-                    }))),
-                    material: materials.add(Color::GREEN.into()),
-                    // transform: Transform::from_xyz(16.0, 0.0, 0.0),
-                    ..default()
-                });
+                commands.spawn((
+                    PbrBundle {
+                        mesh: meshes.add(voxel::greedy_meshing(&voxel::ChunkData::new(
+                            ChunkIndex {
+                                x: x as i32,
+                                y: y as i32,
+                                z: z as i32,
+                            },
+                        ))),
+                        material: materials.add(Color::GREEN.into()),
+                        // transform: Transform::from_xyz(16.0, 0.0, 0.0),
+                        ..default()
+                    },
+                    Name::new(format!("Chunk {}_{}_{}", x, y, z)),
+                ));
             });
         });
     });
@@ -116,7 +124,8 @@ pub fn post_setup(ms: Res<MouseSettings>, mut fps_camera_query: Query<&mut FpsCa
     fps_camera_query.single_mut().enabled = !ms.ui_mode;
 }
 
-#[derive(Resource, Default, Debug)]
+#[derive(Reflect, Resource, Default, Debug, InspectorOptions)]
+#[reflect(Resource, InspectorOptions)]
 pub struct MouseSettings {
     speed: f32,
     sensitivity: f32,
@@ -152,9 +161,6 @@ pub fn input_mode(
         primary.set_cursor_position(Some(center));
     }
 }
-
-use bevy_inspector_egui::prelude::*;
-use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 
 // `InspectorOptions` are completely optional
 #[derive(Reflect, Resource, Default, InspectorOptions)]

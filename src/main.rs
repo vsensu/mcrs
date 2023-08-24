@@ -34,9 +34,11 @@ fn main() {
         .add_systems(PostStartup, mcrs::post_setup)
         .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Update, mcrs::input_mode)
+        .init_resource::<mcrs::MouseSettings>()
+        .register_type::<mcrs::MouseSettings>()
         .init_resource::<mcrs::DebugSettings>() // `ResourceInspectorPlugin` won't initialize the resource
         .register_type::<mcrs::DebugSettings>() // you need to register your type to display it
-        .add_plugins(ResourceInspectorPlugin::<mcrs::DebugSettings>::default())
+        // .add_plugins(ResourceInspectorPlugin::<mcrs::DebugSettings>::default()) // seperate window for the resource
         .add_systems(Update, mcrs::debug_system)
         .add_systems(Update, mcrs::fps)
         .run();
