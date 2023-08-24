@@ -25,6 +25,7 @@ const CORNORS: [Vec3; 8] = [
     Vec3::new(0.0, 0.0, 0.0),
 ];
 
+// +x:0 +y:1 +z:2 -x:3 -y:4 -z:5 same as FaceDirection
 const NORMALS: [Vec3; 6] = [
     Vec3::new(1.0, 0.0, 0.0),
     Vec3::new(0.0, 1.0, 0.0),
@@ -257,6 +258,8 @@ fn add_face(mesh: &mut MeshData, face: &CubeFace, offset: Vec3, size: Vec3) {
     for (_, &value) in face.cornor_indices.iter().enumerate() {
         mesh.positions.push(CORNORS[value as usize] * size + offset);
         mesh.normals.push(NORMALS[face.normal_index as usize]);
+        // mesh.normals
+        // .push((CORNORS[value as usize] - Vec3::new(0.5, 0.5, 0.5)).normalize()); // merge the normals of the same vertex
     }
 
     mesh.indices.push(index_start);
@@ -571,7 +574,7 @@ pub fn greedy_meshing(chunk: &ChunkData) -> Mesh {
             })
         })
     });
-    let mesh_data = merge_vertex(&mesh_data, 0.01);
+    // let mesh_data = merge_vertex(&mesh_data, 0.01);
     let indices = Indices::U32(mesh_data.indices);
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
@@ -586,21 +589,26 @@ fn merge_vertex(source: &MeshData, threshold: f32) -> MeshData {
     let mut dest = MeshData::new();
     let mut vertex_map = HashMap::new();
     (0..source.positions.len()).for_each(|i| {
+        let mut found = false;
         for j in 0..dest.positions.len() {
             if Vec3::length_squared(source.positions[i] - dest.positions[j]) < threshold {
                 vertex_map.insert(i, j);
+                found = true;
                 break;
             }
         }
 
-        vertex_map.insert(i, dest.positions.len());
-        dest.positions.push(source.positions[i]);
+        if !found {
+            vertex_map.insert(i, dest.positions.len());
+            dest.positions.push(source.positions[i]);
+            dest.normals.push(source.normals[i]);
+        }
     });
 
     (0..source.indices.len()).for_each(|i| {
         dest.indices
             .push(vertex_map[&(source.indices[i] as usize)] as u32);
     });
-    dest.normals = source.normals.clone();
+    // dest.normals = source.normals.clone();
     dest
 }
