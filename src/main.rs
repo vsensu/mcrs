@@ -1,4 +1,5 @@
 use bevy::diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
+use bevy::input::common_conditions::input_toggle_active;
 use bevy::pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin};
 use bevy::prelude::*;
 use bevy::window::PresentMode;
@@ -25,14 +26,16 @@ fn main() {
                 }),
             WireframePlugin,
         ))
-        .add_plugins(WorldInspectorPlugin::new())
+        .add_plugins(
+            WorldInspectorPlugin::default().run_if(input_toggle_active(true, KeyCode::Grave)),
+        )
         .add_plugins(LookTransformPlugin)
         .add_plugins(FpsCameraPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         // .add_plugins(EguiPlugin)
         .add_systems(Startup, mcrs::setup)
         .add_systems(PostStartup, mcrs::post_setup)
-        .add_systems(Update, bevy::window::close_on_esc)
+        // .add_systems(Update, bevy::window::close_on_esc)
         .add_systems(Update, mcrs::input_mode)
         .init_resource::<mcrs::MouseSettings>()
         .register_type::<mcrs::MouseSettings>()

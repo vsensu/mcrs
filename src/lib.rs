@@ -86,7 +86,7 @@ pub fn setup(
 
     commands.insert_resource(MouseSettings {
         speed: 10.0,
-        sensitivity: 0.02,
+        sensitivity: Vec2::new(0.5, 0.5),
         ui_mode: true,
     });
 
@@ -118,6 +118,24 @@ pub fn setup(
         }),
         StatsText,
     ));
+
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                flex_direction: FlexDirection::Row,
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_sections([text_section(
+                Color::WHITE,
+                "Press ~ to toggle control mode",
+            )]));
+        });
 }
 
 pub fn post_setup(ms: Res<MouseSettings>, mut fps_camera_query: Query<&mut FpsCameraController>) {
@@ -128,7 +146,7 @@ pub fn post_setup(ms: Res<MouseSettings>, mut fps_camera_query: Query<&mut FpsCa
 #[reflect(Resource, InspectorOptions)]
 pub struct MouseSettings {
     speed: f32,
-    sensitivity: f32,
+    sensitivity: Vec2,
     ui_mode: bool,
 }
 
@@ -141,7 +159,10 @@ pub fn input_mode(
     if keyboard_input.just_released(KeyCode::Grave) {
         ms.ui_mode = !ms.ui_mode;
 
-        fps_camera_query.single_mut().enabled = !ms.ui_mode;
+        let mut fps_camera = fps_camera_query.single_mut();
+        fps_camera.enabled = !ms.ui_mode;
+        fps_camera.translate_sensitivity = ms.speed;
+        fps_camera.mouse_rotate_sensitivity = ms.sensitivity;
 
         if let Ok(mut primary) = primary_query.get_single_mut() {
             primary.cursor.visible = ms.ui_mode;
