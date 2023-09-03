@@ -160,20 +160,12 @@ pub fn input_mode(
 
         if let Ok(mut primary) = primary_query.get_single_mut() {
             primary.cursor.visible = ms.ui_mode;
+            primary.cursor.grab_mode = if ms.ui_mode {
+                bevy::window::CursorGrabMode::None
+            } else {
+                bevy::window::CursorGrabMode::Locked
+            };
         };
-    }
-
-    let Ok(mut primary) = primary_query.get_single_mut() else {
-        return;
-    };
-
-    if !ms.ui_mode {
-        let size = Vec2 {
-            x: primary.width(),
-            y: primary.height(),
-        };
-        let center = size / 2.0;
-        primary.set_cursor_position(Some(center));
     }
 }
 
