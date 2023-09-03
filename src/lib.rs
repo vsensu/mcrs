@@ -17,7 +17,8 @@ use smooth_bevy_cameras::{
 use bevy_inspector_egui::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 
-use voxel::ChunkIndex;
+pub use voxel::VoxelData;
+use voxel::{Chunk, ChunkColumn, ChunkData, ChunkIndex, ChunkMesh};
 
 /// A marker component for our shapes so we can query them separately from the ground plane
 #[derive(Component)]
@@ -43,6 +44,14 @@ pub fn setup(
 
     (0..voxel::WORLD_SIZE).for_each(|x| {
         (0..voxel::WORLD_SIZE).for_each(|z| {
+            commands.spawn(voxel::ColumnMesh {
+                column: ChunkColumn {
+                    x: x as i32,
+                    z: z as i32,
+                },
+                dirty: true,
+                mesh: default(),
+            });
             (0..(voxel::HEIGHT_LIMIT / voxel::CHUNK_SIZE)).for_each(|y| {
                 // commands.spawn(PbrBundle {
                 //     mesh: meshes.add(
@@ -56,18 +65,29 @@ pub fn setup(
                 //     material: materials.add(Color::SILVER.into()),
                 //     ..default()
                 // });
+                // commands.spawn((
+                //     PbrBundle {
+                //         mesh: meshes.add(
+                //             voxel::greedy_meshing(&voxel::ChunkData::new(ChunkIndex {
+                //                 x: x as i32,
+                //                 y: y as i32,
+                //                 z: z as i32,
+                //             }))
+                //             .into(),
+                //         ),
+                //         material: materials.add(Color::GREEN.into()),
+                //         // transform: Transform::from_xyz(16.0, 0.0, 0.0),
+                //         ..default()
+                //     },
+                //     Name::new(format!("Chunk {}_{}_{}", x, y, z)),
+                // ));
                 commands.spawn((
-                    PbrBundle {
-                        mesh: meshes.add(voxel::greedy_meshing(&voxel::ChunkData::new(
-                            ChunkIndex {
-                                x: x as i32,
-                                y: y as i32,
-                                z: z as i32,
-                            },
-                        ))),
-                        material: materials.add(Color::GREEN.into()),
-                        // transform: Transform::from_xyz(16.0, 0.0, 0.0),
-                        ..default()
+                    Chunk {
+                        index: ChunkIndex {
+                            x: x as i32,
+                            y: y as i32,
+                            z: z as i32,
+                        },
                     },
                     Name::new(format!("Chunk {}_{}_{}", x, y, z)),
                 ));
@@ -215,3 +235,127 @@ pub fn fps(diagnostics: Res<DiagnosticsStore>, mut query: Query<&mut Text, With<
         }
     };
 }
+
+pub fn update_chunk_mesh(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut query: Query<(&Chunk, &mut voxel::ChunkMesh)>,
+    voxel_data: Res<voxel::VoxelData>,
+) {
+    // for (chunk, mut chunk_mesh) in query.iter_mut() {
+    //     if chunk_mesh.dirty {
+    //         if let Some(chunk_data) = voxel_data.chunks.get(&chunk.index) {
+    //             chunk_mesh.mesh = meshes.add(voxel::greedy_meshing(chunk_data).into());
+    //             commands.spawn((
+    //                 PbrBundle {
+    //                     mesh: chunk_mesh.mesh.clone(),
+    //                     material: materials.add(Color::GREEN.into()),
+    //                     // transform: Transform::from_xyz(16.0, 0.0, 0.0),
+    //                     ..default()
+    //                 },
+    //                 Name::new(format!(
+    //                     "ChunkMesh {}_{}_{}",
+    //                     chunk.index.x, chunk.index.y, chunk.index.z
+    //                 )),
+    //             ));
+    //             chunk_mesh.dirty = false;
+    //         };
+    //     }
+    // }
+}
+
+pub fn gen_chunk(
+    // mut commands: Commands,
+    mut query: Query<&Chunk>,
+    mut voxel_data: ResMut<voxel::VoxelData>,
+) {
+    for chunk in query.iter_mut() {
+        voxel_data
+            .chunks
+            .entry(chunk.index)
+            .or_insert_with(|| ChunkData::new(chunk.index));
+    }
+}
+
+pub fn update_column_mesh(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut query: Query<&mut voxel::ColumnMesh>,
+    voxel_data: Res<voxel::VoxelData>,
+) {
+    for mut column_mesh in query.iter_mut() {
+        if column_mesh.dirty {
+            let mut chunk_num = 0;
+            (0..16).for_each(|i| {
+                if voxel_data.chunks.contains_key(&ChunkIndex {
+                    x: column_mesh.column.x,
+                    y: i,
+                    z: column_mesh.column.z,
+                }) {
+                    chunk_num += 1;
+                }
+            });
+            if chunk_num == 16 {
+                let mut chunks_mesh_data = Vec::new();
+                (0..16).for_each(|i| {
+                    if let Some(chunk_data) = voxel_data.chunks.get(&ChunkIndex {
+                        x: column_mesh.column.x,
+                        y: i,
+                        z: column_mesh.column.z,
+                    }) {
+                        chunks_mesh_data.push(voxel::greedy_meshing(chunk_data));
+                    }
+                });
+                column_mesh.mesh = meshes.add(voxel::combine_meshes(&chunks_mesh_data).into());
+                commands.spawn((
+                    PbrBundle {
+                        mesh: column_mesh.mesh.clone(),
+                        material: materials.add(Color::GREEN.into()),
+                        // transform: Transform::from_xyz(16.0, 0.0, 0.0),
+                        ..default()
+                    },
+                    Name::new(format!(
+                        "ColumnMesh {}_{}",
+                        column_mesh.column.x, column_mesh.column.z
+                    )),
+                ));
+                column_mesh.dirty = false;
+            }
+        }
+    }
+}
+
+// pub fn check_merge_chunk_meshes(world: &mut World) {
+//     if world.contains_resource::<VoxelData>() {
+//         let voxel_data = world.resource::<VoxelData>();
+//         let mut chunk_num = 0;
+//         (0..16).for_each(|i| {
+//             let chunk_index = ChunkIndex { x: 0, y: i, z: 0 };
+//             if voxel_data.chunks.contains_key(&chunk_index) {
+//                 chunk_num += 1;
+//                 let chunk_entity = world.entity(
+//                     chunk_entities
+//                         .chunk_entities
+//                         .get(&chunk_index)
+//                         .unwrap()
+//                         .clone(),
+//                 );
+//                 if let Some(chunk_mesh) = world.get::<ChunkMesh>(chunk_entity.id()) {
+//                     if chunk_mesh.merged {}
+//                 }
+//             }
+//         });
+//         if chunk_num == 16 {}
+//     }
+// }
+
+// pub fn merge_chunk_meshes(
+//     mut commands: Commands,
+//     mut meshes: ResMut<Assets<Mesh>>,
+//     mut materials: ResMut<Assets<StandardMaterial>>,
+//     mut query: Query<(&voxel::ChunkData, &mut voxel::ChunkMesh)>,
+//     mut fps_camera_query: Query<&mut FpsCameraController>,
+// ) {
+// }

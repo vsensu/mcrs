@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bevy::{
     prelude::*,
@@ -8,7 +8,7 @@ use bevy::{
 use lerp::Lerp;
 use noise::{NoiseFn, Perlin, Seedable};
 
-pub const WORLD_SIZE: usize = 1; // 4 chunks in each direction
+pub const WORLD_SIZE: usize = 4; // 4 chunks in each direction
 pub const CHUNK_SIZE: usize = 16; // 16 voxels in each direction
 const WAVE_LENGTH: usize = WORLD_SIZE * CHUNK_SIZE; // voxel wave length in each direction
 pub const HEIGHT_LIMIT: usize = 256; // height limit of the world
@@ -35,7 +35,7 @@ const NORMALS: [Vec3; 6] = [
     Vec3::new(0.0, 0.0, -1.0),
 ];
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ChunkIndex {
     pub x: i32,
     pub y: i32,
@@ -121,63 +121,6 @@ impl Default for ChunkData {
     }
 }
 
-impl From<ChunkData> for Mesh {
-    fn from(chunk: ChunkData) -> Self {
-        let mut mesh_data = MeshData::new();
-        (0..CHUNK_SIZE).for_each(|y| {
-            (0..CHUNK_SIZE).for_each(|z| {
-                (0..CHUNK_SIZE).for_each(|x| {
-                    // println!("Element at ({}, {}, {}): {}", x, y, z, elem);
-                    if chunk.voxels[x][y][z] == 0 {
-                        return;
-                    }
-
-                    let offset = Vec3::new(
-                        chunk.index.x as f32 * CHUNK_SIZE as f32,
-                        chunk.index.y as f32 * CHUNK_SIZE as f32,
-                        chunk.index.z as f32 * CHUNK_SIZE as f32,
-                    ) + Vec3::new(x as f32, y as f32, z as f32);
-
-                    if y == CHUNK_SIZE - 1 || (y < CHUNK_SIZE - 1 && chunk.voxels[x][y + 1][z] == 0)
-                    {
-                        add_face(&mut mesh_data, &CubeFace::TOP_FACE, offset, Vec3::ONE);
-                    }
-
-                    if y == 0 || (y > 0 && chunk.voxels[x][y - 1][z] == 0) {
-                        add_face(&mut mesh_data, &CubeFace::BOTTOM_FACE, offset, Vec3::ONE);
-                    }
-
-                    if x == 0 || (x > 0 && chunk.voxels[x - 1][y][z] == 0) {
-                        add_face(&mut mesh_data, &CubeFace::LEFT_FACE, offset, Vec3::ONE);
-                    }
-
-                    if x == CHUNK_SIZE - 1 || (x < CHUNK_SIZE - 1 && chunk.voxels[x + 1][y][z] == 0)
-                    {
-                        add_face(&mut mesh_data, &CubeFace::RIGHT_FACE, offset, Vec3::ONE);
-                    }
-
-                    if z == CHUNK_SIZE - 1 || (z < CHUNK_SIZE - 1 && chunk.voxels[x][y][z + 1] == 0)
-                    {
-                        add_face(&mut mesh_data, &CubeFace::FRONT_FACE, offset, Vec3::ONE);
-                    }
-
-                    if z == 0 || (z > 0 && chunk.voxels[x][y][z - 1] == 0) {
-                        add_face(&mut mesh_data, &CubeFace::BACK_FACE, offset, Vec3::ONE);
-                    }
-                })
-            })
-        });
-        let indices = Indices::U32(mesh_data.indices);
-
-        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(indices));
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh_data.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh_data.normals);
-        // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, meshData.uvs);
-        mesh
-    }
-}
-
 struct CubeFace {
     cornor_indices: [u8; 4],     // cornor array index
     normal_index: FaceDirection, // +x:0 +y:1 +z:2 -x:3 -y:4 -z:5 same as FaceDirection
@@ -236,7 +179,7 @@ impl CubeFace {
 }
 
 #[derive(Debug, Clone)]
-struct MeshData {
+pub struct MeshData {
     positions: Vec<Vec3>,
     indices: Vec<u32>,
     normals: Vec<Vec3>,
@@ -274,7 +217,53 @@ fn can_merge_mesh(voxel1: u8, voxel2: u8) -> bool {
     voxel1 == voxel2
 }
 
-pub fn greedy_meshing(chunk: &ChunkData) -> Mesh {
+fn default_mesh(chunk: ChunkData) -> MeshData {
+    let mut mesh_data = MeshData::new();
+    (0..CHUNK_SIZE).for_each(|y| {
+        (0..CHUNK_SIZE).for_each(|z| {
+            (0..CHUNK_SIZE).for_each(|x| {
+                // println!("Element at ({}, {}, {}): {}", x, y, z, elem);
+                if chunk.voxels[x][y][z] == 0 {
+                    return;
+                }
+
+                let offset = Vec3::new(
+                    chunk.index.x as f32 * CHUNK_SIZE as f32,
+                    chunk.index.y as f32 * CHUNK_SIZE as f32,
+                    chunk.index.z as f32 * CHUNK_SIZE as f32,
+                ) + Vec3::new(x as f32, y as f32, z as f32);
+
+                if y == CHUNK_SIZE - 1 || (y < CHUNK_SIZE - 1 && chunk.voxels[x][y + 1][z] == 0) {
+                    add_face(&mut mesh_data, &CubeFace::TOP_FACE, offset, Vec3::ONE);
+                }
+
+                if y == 0 || (y > 0 && chunk.voxels[x][y - 1][z] == 0) {
+                    add_face(&mut mesh_data, &CubeFace::BOTTOM_FACE, offset, Vec3::ONE);
+                }
+
+                if x == 0 || (x > 0 && chunk.voxels[x - 1][y][z] == 0) {
+                    add_face(&mut mesh_data, &CubeFace::LEFT_FACE, offset, Vec3::ONE);
+                }
+
+                if x == CHUNK_SIZE - 1 || (x < CHUNK_SIZE - 1 && chunk.voxels[x + 1][y][z] == 0) {
+                    add_face(&mut mesh_data, &CubeFace::RIGHT_FACE, offset, Vec3::ONE);
+                }
+
+                if z == CHUNK_SIZE - 1 || (z < CHUNK_SIZE - 1 && chunk.voxels[x][y][z + 1] == 0) {
+                    add_face(&mut mesh_data, &CubeFace::FRONT_FACE, offset, Vec3::ONE);
+                }
+
+                if z == 0 || (z > 0 && chunk.voxels[x][y][z - 1] == 0) {
+                    add_face(&mut mesh_data, &CubeFace::BACK_FACE, offset, Vec3::ONE);
+                }
+            })
+        })
+    });
+
+    mesh_data
+}
+
+pub fn greedy_meshing(chunk: &ChunkData) -> MeshData {
     let mut sizes: [[[Vec3; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE] =
         [[[Vec3::ONE; CHUNK_SIZE]; CHUNK_SIZE]; CHUNK_SIZE];
     (0..CHUNK_SIZE).for_each(|y| {
@@ -574,15 +563,22 @@ pub fn greedy_meshing(chunk: &ChunkData) -> Mesh {
             })
         })
     });
-    // let mesh_data = merge_vertex(&mesh_data, 0.01);
-    let indices = Indices::U32(mesh_data.indices);
 
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-    mesh.set_indices(Some(indices));
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh_data.positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh_data.normals);
-    // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, meshData.uvs);
-    mesh
+    mesh_data
+}
+
+impl From<MeshData> for Mesh {
+    fn from(value: MeshData) -> Self {
+        // let mesh_data = merge_vertex(&mesh_data, 0.01);
+        let indices = Indices::U32(value.indices);
+
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        mesh.set_indices(Some(indices));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, value.positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, value.normals);
+        // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, meshData.uvs);
+        mesh
+    }
 }
 
 fn merge_vertex(source: &MeshData, threshold: f32) -> MeshData {
@@ -611,4 +607,49 @@ fn merge_vertex(source: &MeshData, threshold: f32) -> MeshData {
     });
     // dest.normals = source.normals.clone();
     dest
+}
+
+/// Combine multiple meshes into one mesh
+pub fn combine_meshes(meshes: &[MeshData]) -> MeshData {
+    let mut mesh_data = MeshData::new();
+    let mut index_start: u32 = 0;
+    for mesh in meshes {
+        mesh_data.positions.extend(mesh.positions.iter());
+        mesh_data.normals.extend(mesh.normals.iter());
+        mesh_data
+            .indices
+            .extend(mesh.indices.iter().map(|i| i + index_start));
+        index_start += mesh.positions.len() as u32;
+    }
+    mesh_data
+}
+
+#[derive(Component)]
+pub struct ChunkMesh {
+    pub dirty: bool,
+    pub mesh: Handle<Mesh>,
+    pub merged: bool,
+}
+
+#[derive(Resource, Default)]
+pub struct VoxelData {
+    pub chunks: HashMap<ChunkIndex, ChunkData>,
+}
+
+#[derive(Component)]
+pub struct Chunk {
+    pub index: ChunkIndex,
+}
+
+#[derive(Default, Clone, Copy)]
+pub struct ChunkColumn {
+    pub x: i32,
+    pub z: i32,
+}
+
+#[derive(Component)]
+pub struct ColumnMesh {
+    pub column: ChunkColumn,
+    pub dirty: bool,
+    pub mesh: Handle<Mesh>,
 }

@@ -32,6 +32,7 @@ fn main() {
         .add_plugins(LookTransformPlugin)
         .add_plugins(FpsCameraPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
+        .init_resource::<mcrs::VoxelData>()
         // .add_plugins(EguiPlugin)
         .add_systems(Startup, mcrs::setup)
         .add_systems(PostStartup, mcrs::post_setup)
@@ -44,5 +45,9 @@ fn main() {
         // .add_plugins(ResourceInspectorPlugin::<mcrs::DebugSettings>::default()) // seperate window for the resource
         .add_systems(Update, mcrs::debug_system)
         .add_systems(Update, mcrs::fps)
+        .add_systems(Update, mcrs::update_chunk_mesh)
+        // .add_systems(PostUpdate, mcrs::check_merge_chunk_meshes)
+        .add_systems(PreUpdate, mcrs::gen_chunk)
+        .add_systems(Update, mcrs::update_column_mesh)
         .run();
 }
