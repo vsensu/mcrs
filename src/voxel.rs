@@ -8,10 +8,12 @@ use bevy::{
 use lerp::Lerp;
 use noise::{NoiseFn, Perlin, Seedable};
 
-pub const WORLD_SIZE: usize = 4; // 4 chunks in each direction
+pub const WORLD_SIZE: usize = 100; // 4 chunks in each direction
+pub const INIT_WORLD_SIZE: usize = 4; // 4 chunks in each direction at the beginning
 pub const CHUNK_SIZE: usize = 16; // 16 voxels in each direction
-const WAVE_LENGTH: usize = WORLD_SIZE * CHUNK_SIZE; // voxel wave length in each direction
-pub const HEIGHT_LIMIT: usize = 256; // height limit of the world
+const WAVE_LENGTH: usize = 64; // voxel wave length in each direction
+pub const CHUNK_LIMIT_Y: usize = 16; // chunk limit in y direction
+pub const HEIGHT_LIMIT: usize = CHUNK_SIZE * CHUNK_LIMIT_Y; // height limit of the world
 
 // cube cornors
 const CORNORS: [Vec3; 8] = [
@@ -636,12 +638,17 @@ pub struct VoxelData {
     pub chunks: HashMap<ChunkIndex, ChunkData>,
 }
 
+#[derive(Resource, Default)]
+pub struct VoxelMeshes {
+    pub columns: HashMap<ChunkColumn, Entity>,
+}
+
 #[derive(Component)]
 pub struct Chunk {
     pub index: ChunkIndex,
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ChunkColumn {
     pub x: i32,
     pub z: i32,
@@ -652,4 +659,17 @@ pub struct ColumnMesh {
     pub column: ChunkColumn,
     pub dirty: bool,
     pub mesh: Handle<Mesh>,
+}
+
+pub fn get_chunk_index(pos: &Vec3) -> ChunkIndex {
+    ChunkIndex {
+        x: (pos.x / CHUNK_SIZE as f32).floor() as i32,
+        y: (pos.y / CHUNK_SIZE as f32).floor() as i32,
+        z: (pos.z / CHUNK_SIZE as f32).floor() as i32,
+    }
+}
+
+#[derive(Resource, Default)]
+pub struct ChunkMeshesUpdateQueue {
+    pub queue: HashSet<ChunkColumn>,
 }
