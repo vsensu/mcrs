@@ -239,6 +239,10 @@ pub fn update_column_meshes(
     voxel_material: Res<VoxelMaterial>,
     voxel_data: Res<voxel::VoxelData>,
 ) {
+    if !voxel_material.loaded {
+        return;
+    }
+
     for (column_mesh_entity, mut column_mesh) in query.iter_mut() {
         if column_mesh.dirty {
             let mut chunk_num = 0;
@@ -351,6 +355,7 @@ pub struct LoadingTexture {
 
 #[derive(Resource, Default)]
 pub struct VoxelMaterial {
+    loaded: bool,
     material: Handle<ArrayTextureMaterial>,
 }
 
@@ -377,6 +382,7 @@ pub fn create_array_texture(
         array_texture: loading_texture.handle.clone(),
     });
     voxel_material.material = material_handle;
+    voxel_material.loaded = true;
 }
 
 #[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
