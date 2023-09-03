@@ -21,6 +21,8 @@ use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 
 use voxel::{Chunk, ChunkColumn, ChunkData, ChunkIndex, ChunkMesh};
 
+use bevy_mod_picking::prelude::*;
+
 /// A marker component for our shapes so we can query them separately from the ground plane
 #[derive(Component)]
 pub struct Shape;
@@ -66,7 +68,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 
     commands
-        .spawn(Camera3dBundle::default())
+        .spawn((Camera3dBundle::default(), RaycastPickCamera::default()))
         .insert(FpsCameraBundle::new(
             FpsCameraController::default(),
             Vec3::new(0.0, 128.0, 5.0),
@@ -126,10 +128,24 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 "Press ~ to toggle control mode",
             )]));
         });
+
+    commands.spawn(NodeBundle {
+        background_color: BackgroundColor(Color::RED),
+        style: Style {
+            position_type: PositionType::Absolute,
+            top: Val::Percent(50.),
+            left: Val::Percent(50.),
+            width: Val::Px(4.),
+            height: Val::Px(4.),
+            ..default()
+        },
+        ..default()
+    });
     commands.insert_resource(voxel::VoxelData::default());
     commands.insert_resource(voxel::VoxelMeshes::default());
-    commands.insert_resource(voxel::ChunkMeshesUpdateQueue::default());
     commands.insert_resource(VoxelMaterial::default());
+    commands.insert_resource(voxel::ChunkMeshesUpdateQueue::default());
+    commands.insert_resource(voxel::VoxelModifyQueue::default());
 }
 
 pub fn post_setup(ms: Res<MouseSettings>, mut fps_camera_query: Query<&mut FpsCameraController>) {
@@ -166,6 +182,50 @@ pub fn input_mode(
                 bevy::window::CursorGrabMode::Locked
             };
         };
+    }
+}
+
+pub fn hit_voxel(
+    voxel_data: Res<voxel::VoxelData>,
+    mouse_input: Res<Input<MouseButton>>,
+    fps_camera_query: Query<&GlobalTransform, With<FpsCameraController>>,
+    mut voxel_modify_queue: ResMut<voxel::VoxelModifyQueue>,
+) {
+    let transform = fps_camera_query.single();
+    let voxel_positions =
+        voxel::get_intersected_voxels(&transform.translation(), &transform.forward(), 10.0);
+
+    if voxel_positions.is_empty() {
+        return {};
+    }
+    let mut previous = voxel_positions[0];
+
+    if mouse_input.just_released(MouseButton::Left) {
+        for voxel_position in voxel_positions.iter() {
+            let (chunk_index, voxel_local_index) = voxel::pos_to_voxel(voxel_position);
+            let voxel_tid = voxel_data.chunks.get(&chunk_index).unwrap().voxels
+                [voxel_local_index.x as usize][voxel_local_index.y as usize]
+                [voxel_local_index.z as usize];
+            if voxel_tid != 0 {
+                voxel_modify_queue.queue.push((*voxel_position, 0));
+                break;
+            } else {
+                previous = *voxel_position;
+            }
+        }
+    } else if mouse_input.just_pressed(MouseButton::Right) {
+        for voxel_position in voxel_positions.iter() {
+            let (chunk_index, voxel_local_index) = voxel::pos_to_voxel(voxel_position);
+            let voxel_tid = voxel_data.chunks.get(&chunk_index).unwrap().voxels
+                [voxel_local_index.x as usize][voxel_local_index.y as usize]
+                [voxel_local_index.z as usize];
+            if voxel_tid != 0 {
+                voxel_modify_queue.queue.push((previous, 1));
+                break;
+            } else {
+                previous = *voxel_position;
+            }
+        }
     }
 }
 
@@ -337,6 +397,24 @@ pub fn handle_chunk_meshes_update_queue(
             });
     }
     chunk_meshes_update_queue.queue.clear();
+}
+
+pub fn handle_voxel_modify_queue(
+    mut voxel_data: ResMut<voxel::VoxelData>,
+    mut voxel_modify_queue: ResMut<voxel::VoxelModifyQueue>,
+    mut chunk_meshes_update_queue: ResMut<voxel::ChunkMeshesUpdateQueue>,
+) {
+    for (voxel_position, tid) in voxel_modify_queue.queue.iter() {
+        let (chunk_index, voxel_local_index) = voxel::pos_to_voxel(voxel_position);
+        let chunk = voxel_data.chunks.get_mut(&chunk_index).unwrap();
+        chunk.voxels[voxel_local_index.x as usize][voxel_local_index.y as usize]
+            [voxel_local_index.z as usize] = *tid;
+        chunk_meshes_update_queue.queue.insert(ChunkColumn {
+            x: chunk_index.x,
+            z: chunk_index.z,
+        });
+    }
+    voxel_modify_queue.queue.clear();
 }
 
 #[derive(Resource)]

@@ -12,6 +12,7 @@ smooth-bevy-cameras = "0.9"
 noise = "0.8"
 lerp = "0.5"
 bevy_egui = "0.21"
+bevy_mod_picking = "0.15"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

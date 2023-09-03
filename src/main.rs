@@ -6,6 +6,7 @@ use bevy::window::PresentMode;
 use bevy_inspector_egui::prelude::*;
 use bevy_inspector_egui::quick::ResourceInspectorPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_mod_picking::prelude::*;
 use smooth_bevy_cameras::{
     controllers::fps::{FpsCameraBundle, FpsCameraController, FpsCameraPlugin},
     LookTransformPlugin,
@@ -34,6 +35,7 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         // .add_plugins(EguiPlugin)
         .add_plugins(MaterialPlugin::<mcrs::ArrayTextureMaterial>::default())
+        // .add_plugins(DefaultPickingPlugins)
         .add_systems(Startup, mcrs::setup)
         .add_systems(PostStartup, mcrs::post_setup)
         // .add_systems(Update, bevy::window::close_on_esc)
@@ -50,5 +52,7 @@ fn main() {
         .add_systems(Update, mcrs::load_chunks_around)
         .add_systems(Update, mcrs::handle_chunk_meshes_update_queue)
         .add_systems(Update, mcrs::create_array_texture)
+        .add_systems(Update, mcrs::handle_voxel_modify_queue)
+        .add_systems(Update, mcrs::hit_voxel)
         .run();
 }

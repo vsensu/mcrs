@@ -684,3 +684,130 @@ pub fn get_chunk_index(pos: &Vec3) -> ChunkIndex {
 pub struct ChunkMeshesUpdateQueue {
     pub queue: HashSet<ChunkColumn>,
 }
+
+#[derive(Resource, Default)]
+pub struct VoxelModifyQueue {
+    pub queue: Vec<(Vec3, u8)>,
+}
+
+fn to_voxel_position(pos: &Vec3) -> Vec3 {
+    Vec3 {
+        x: pos.x.floor(),
+        y: pos.y.floor(),
+        z: pos.z.floor(),
+    }
+}
+
+pub fn get_intersected_voxels(start_point: &Vec3, direction: &Vec3, range: f32) -> Vec<Vec3> {
+    // Ensures passed direction is normalized
+    let n_direction = direction.normalize();
+    let end_point = *start_point + n_direction * range;
+    let start_voxel = to_voxel_position(start_point);
+
+    // +1, -1, or 0
+    let step_x = if n_direction.x > 0.0 {
+        1.0
+    } else if n_direction.x < 0.0 {
+        -1.0
+    } else {
+        0.0
+    };
+    let step_y = if n_direction.y > 0.0 {
+        1.0
+    } else if n_direction.y < 0.0 {
+        -1.0
+    } else {
+        0.0
+    };
+    let step_z = if n_direction.z > 0.0 {
+        1.0
+    } else if n_direction.z < 0.0 {
+        -1.0
+    } else {
+        0.0
+    };
+
+    let t_delta_x = if step_x != 0.0 {
+        f32::min(step_x / (end_point.x - start_point.x), f32::MAX)
+    } else {
+        f32::MAX
+    };
+
+    let t_delta_y = if step_y != 0.0 {
+        f32::min(step_y / (end_point.y - start_point.y), f32::MAX)
+    } else {
+        f32::MAX
+    };
+
+    let t_delta_z = if step_z != 0.0 {
+        f32::min(step_z / (end_point.z - start_point.z), f32::MAX)
+    } else {
+        f32::MAX
+    };
+
+    let mut t_max_x = if step_x > 0.0 {
+        t_delta_x * (1.0 - start_point.x + start_voxel.x)
+    } else {
+        t_delta_x * (start_point.x - start_voxel.x)
+    };
+
+    let mut t_max_y = if step_y > 0.0 {
+        t_delta_y * (1.0 - start_point.y + start_voxel.y)
+    } else {
+        t_delta_y * (start_point.y - start_voxel.y)
+    };
+
+    let mut t_max_z = if step_z > 0.0 {
+        t_delta_z * (1.0 - start_point.z + start_voxel.z)
+    } else {
+        t_delta_z * (start_point.z - start_voxel.z)
+    };
+
+    let mut current_voxel = start_voxel;
+    let mut intersected = Vec::new();
+    intersected.push(start_voxel);
+
+    // sanity check to prevent leak
+    while intersected.len() < range as usize * 3 {
+        if (t_max_x < t_max_y) {
+            if (t_max_x < t_max_z) {
+                current_voxel.x += step_x;
+                t_max_x += t_delta_x;
+            } else {
+                current_voxel.z += step_z;
+                t_max_z += t_delta_z;
+            }
+        } else {
+            if (t_max_y < t_max_z) {
+                current_voxel.y += step_y;
+                t_max_y += t_delta_y;
+            } else {
+                current_voxel.z += step_z;
+                t_max_z += t_delta_z;
+            }
+        }
+        if (t_max_x > 1.0 && t_max_y > 1.0 && t_max_z > 1.0) {
+            break;
+        }
+        intersected.push(current_voxel);
+    }
+    intersected
+}
+
+pub struct VoxelLocalIndex {
+    pub x: u8,
+    pub y: u8,
+    pub z: u8,
+}
+
+pub fn pos_to_voxel(pos: &Vec3) -> (ChunkIndex, VoxelLocalIndex) {
+    let chunk_index = get_chunk_index(pos);
+    (
+        chunk_index,
+        VoxelLocalIndex {
+            x: (pos.x - chunk_index.x as f32 * CHUNK_SIZE as f32).floor() as u8,
+            y: (pos.y - chunk_index.y as f32 * CHUNK_SIZE as f32).floor() as u8,
+            z: (pos.z - chunk_index.z as f32 * CHUNK_SIZE as f32).floor() as u8,
+        },
+    )
+}
