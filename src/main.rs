@@ -33,6 +33,7 @@ fn main() {
         .add_plugins(FpsCameraPlugin::default())
         .add_plugins(FrameTimeDiagnosticsPlugin::default())
         // .add_plugins(EguiPlugin)
+        .add_plugins(MaterialPlugin::<mcrs::ArrayTextureMaterial>::default())
         .add_systems(Startup, mcrs::setup)
         .add_systems(PostStartup, mcrs::post_setup)
         // .add_systems(Update, bevy::window::close_on_esc)
@@ -48,5 +49,6 @@ fn main() {
         .add_systems(Update, mcrs::update_column_meshes)
         .add_systems(Update, mcrs::load_chunks_around)
         .add_systems(Update, mcrs::handle_chunk_meshes_update_queue)
+        .add_systems(Update, mcrs::create_array_texture)
         .run();
 }

@@ -37,6 +37,13 @@ const NORMALS: [Vec3; 6] = [
     Vec3::new(0.0, 0.0, -1.0),
 ];
 
+const UVS: [Vec2; 4] = [
+    Vec2::new(1.0, 0.0),
+    Vec2::new(0.0, 0.0),
+    Vec2::new(0.0, 1.0),
+    Vec2::new(1.0, 1.0),
+];
+
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct ChunkIndex {
     pub x: i32,
@@ -128,7 +135,7 @@ struct CubeFace {
     normal_index: FaceDirection, // +x:0 +y:1 +z:2 -x:3 -y:4 -z:5 same as FaceDirection
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum FaceDirection {
     Right = 0, // +x
     Top,       // +y
@@ -185,6 +192,7 @@ pub struct MeshData {
     positions: Vec<Vec3>,
     indices: Vec<u32>,
     normals: Vec<Vec3>,
+    uvs: Vec<Vec2>,
 }
 
 impl MeshData {
@@ -193,6 +201,7 @@ impl MeshData {
             positions: Vec::new(),
             indices: Vec::new(),
             normals: Vec::new(),
+            uvs: Vec::new(),
         }
     }
 }
@@ -200,11 +209,12 @@ impl MeshData {
 fn add_face(mesh: &mut MeshData, face: &CubeFace, offset: Vec3, size: Vec3) {
     let index_start: u32 = mesh.positions.len() as u32;
 
-    for (_, &value) in face.cornor_indices.iter().enumerate() {
+    for (i, &value) in face.cornor_indices.iter().enumerate() {
         mesh.positions.push(CORNORS[value as usize] * size + offset);
         mesh.normals.push(NORMALS[face.normal_index as usize]);
         // mesh.normals
         // .push((CORNORS[value as usize] - Vec3::new(0.5, 0.5, 0.5)).normalize()); // merge the normals of the same vertex
+        mesh.uvs.push(UVS[i]);
     }
 
     mesh.indices.push(index_start);
@@ -578,7 +588,7 @@ impl From<MeshData> for Mesh {
         mesh.set_indices(Some(indices));
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, value.positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, value.normals);
-        // mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, meshData.uvs);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, value.uvs);
         mesh
     }
 }
@@ -618,6 +628,7 @@ pub fn combine_meshes(meshes: &[MeshData]) -> MeshData {
     for mesh in meshes {
         mesh_data.positions.extend(mesh.positions.iter());
         mesh_data.normals.extend(mesh.normals.iter());
+        mesh_data.uvs.extend(mesh.uvs.iter());
         mesh_data
             .indices
             .extend(mesh.indices.iter().map(|i| i + index_start));

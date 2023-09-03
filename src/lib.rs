@@ -3,10 +3,12 @@ mod voxel;
 use std::f32::consts::PI;
 
 use bevy::{
+    asset::LoadState,
     diagnostic::{Diagnostics, DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
     prelude::*,
-    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    reflect::{TypePath, TypeUuid},
+    render::render_resource::{AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat},
     window::PrimaryWindow,
 };
 use smooth_bevy_cameras::{
@@ -24,6 +26,17 @@ use voxel::{Chunk, ChunkColumn, ChunkData, ChunkIndex, ChunkMesh};
 pub struct Shape;
 
 pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    // Start loading the texture.
+    commands.insert_resource(LoadingTexture {
+        is_loaded: false,
+        handle: asset_server.load("textures/array_texture.png"),
+    });
+
+    commands.spawn(DirectionalLightBundle {
+        transform: Transform::from_rotation(Quat::from_rotation_x(-PI / 4.0)),
+        ..default()
+    });
+
     commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 9000.0,
@@ -116,6 +129,7 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(voxel::VoxelData::default());
     commands.insert_resource(voxel::VoxelMeshes::default());
     commands.insert_resource(voxel::ChunkMeshesUpdateQueue::default());
+    commands.insert_resource(VoxelMaterial::default());
 }
 
 pub fn post_setup(ms: Res<MouseSettings>, mut fps_camera_query: Query<&mut FpsCameraController>) {
@@ -222,6 +236,7 @@ pub fn update_column_meshes(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut query: Query<(Entity, &mut voxel::ColumnMesh)>,
+    voxel_material: Res<VoxelMaterial>,
     voxel_data: Res<voxel::VoxelData>,
 ) {
     for (column_mesh_entity, mut column_mesh) in query.iter_mut() {
@@ -249,11 +264,13 @@ pub fn update_column_meshes(
                 });
                 meshes.remove(column_mesh.mesh.clone());
                 column_mesh.mesh = meshes.add(voxel::combine_meshes(&chunks_mesh_data).into());
-                commands.entity(column_mesh_entity).insert(PbrBundle {
-                    mesh: column_mesh.mesh.clone(),
-                    material: materials.add(Color::GREEN.into()),
-                    ..default()
-                });
+                commands
+                    .entity(column_mesh_entity)
+                    .insert(MaterialMeshBundle {
+                        mesh: column_mesh.mesh.clone(),
+                        material: voxel_material.material.clone(),
+                        ..default()
+                    });
                 column_mesh.dirty = false;
                 println!(
                     "ColumnMesh {}_{} updated",
@@ -324,4 +341,54 @@ pub fn handle_chunk_meshes_update_queue(
             });
     }
     chunk_meshes_update_queue.queue.clear();
+}
+
+#[derive(Resource)]
+pub struct LoadingTexture {
+    is_loaded: bool,
+    handle: Handle<Image>,
+}
+
+#[derive(Resource, Default)]
+pub struct VoxelMaterial {
+    material: Handle<ArrayTextureMaterial>,
+}
+
+pub fn create_array_texture(
+    asset_server: Res<AssetServer>,
+    mut loading_texture: ResMut<LoadingTexture>,
+    mut images: ResMut<Assets<Image>>,
+    mut materials: ResMut<Assets<ArrayTextureMaterial>>,
+    mut voxel_material: ResMut<VoxelMaterial>,
+) {
+    if loading_texture.is_loaded
+        || asset_server.get_load_state(loading_texture.handle.clone()) != LoadState::Loaded
+    {
+        return;
+    }
+    loading_texture.is_loaded = true;
+    let image = images.get_mut(&loading_texture.handle).unwrap();
+
+    // Create a new array texture asset from the loaded texture.
+    let array_layers = 4;
+    image.reinterpret_stacked_2d_as_array(array_layers);
+
+    let material_handle = materials.add(ArrayTextureMaterial {
+        array_texture: loading_texture.handle.clone(),
+    });
+    voxel_material.material = material_handle;
+}
+
+#[derive(AsBindGroup, Debug, Clone, TypeUuid, TypePath)]
+#[uuid = "9c5a0ddf-1eaf-41b4-9832-ed736fd26af3"]
+pub struct ArrayTextureMaterial {
+    #[texture(0, dimension = "2d_array")]
+    #[sampler(1)]
+    array_texture: Handle<Image>,
+}
+
+impl Material for ArrayTextureMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/array_texture.wgsl".into()
+    }
 }
