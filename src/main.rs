@@ -45,6 +45,7 @@ fn main() {
         .init_resource::<mcrs::DebugSettings>() // `ResourceInspectorPlugin` won't initialize the resource
         .register_type::<mcrs::DebugSettings>() // you need to register your type to display it
         // .add_plugins(ResourceInspectorPlugin::<mcrs::DebugSettings>::default()) // seperate window for the resource
+        .register_type::<mcrs::VoxelSettings>()
         .add_systems(Update, mcrs::debug_system)
         .add_systems(Update, mcrs::fps)
         .add_systems(PreUpdate, mcrs::gen_chunks_data)
@@ -54,5 +55,6 @@ fn main() {
         .add_systems(Update, mcrs::create_array_texture)
         .add_systems(Update, mcrs::handle_voxel_modify_queue)
         .add_systems(Update, mcrs::hit_voxel)
+        .add_systems(Update, mcrs::remove_chunk)
         .run();
 }

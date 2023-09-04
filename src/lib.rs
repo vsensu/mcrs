@@ -23,6 +23,8 @@ use voxel::{Chunk, ChunkColumn, ChunkData, ChunkIndex, ChunkMesh};
 
 use bevy_mod_picking::prelude::*;
 
+pub use voxel::VoxelSettings;
+
 /// A marker component for our shapes so we can query them separately from the ground plane
 #[derive(Component)]
 pub struct Shape;
@@ -146,6 +148,10 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(VoxelMaterial::default());
     commands.insert_resource(voxel::ChunkMeshesUpdateQueue::default());
     commands.insert_resource(voxel::VoxelModifyQueue::default());
+    commands.insert_resource(voxel::VoxelSettings {
+        sight_range: 8,
+        interact_distance: 10.0,
+    });
 }
 
 pub fn post_setup(ms: Res<MouseSettings>, mut fps_camera_query: Query<&mut FpsCameraController>) {
@@ -190,10 +196,14 @@ pub fn hit_voxel(
     mouse_input: Res<Input<MouseButton>>,
     fps_camera_query: Query<&GlobalTransform, With<FpsCameraController>>,
     mut voxel_modify_queue: ResMut<voxel::VoxelModifyQueue>,
+    voxel_settings: Res<voxel::VoxelSettings>,
 ) {
     let transform = fps_camera_query.single();
-    let voxel_positions =
-        voxel::get_intersected_voxels(&transform.translation(), &transform.forward(), 10.0);
+    let voxel_positions = voxel::get_intersected_voxels(
+        &transform.translation(),
+        &transform.forward(),
+        voxel_settings.interact_distance,
+    );
 
     if voxel_positions.is_empty() {
         return {};
@@ -341,11 +351,12 @@ pub fn load_chunks_around(
     mut commands: Commands,
     fps_camera_query: Query<&GlobalTransform, With<FpsCameraController>>,
     voxel_data: Res<voxel::VoxelData>,
+    voxel_settings: Res<voxel::VoxelSettings>,
 ) {
     let transform = fps_camera_query.single();
     let camera_pos = transform.translation();
     let chunk_index = voxel::get_chunk_index(&camera_pos);
-    let sight_range = 4; // 4 chunks around the player
+    let sight_range = voxel_settings.sight_range as i32;
     for x in -sight_range..=sight_range {
         for z in -sight_range..=sight_range {
             (0..voxel::CHUNK_LIMIT_Y).for_each(|y| {
@@ -366,6 +377,40 @@ pub fn load_chunks_around(
                     ));
                 }
             });
+        }
+    }
+}
+
+pub fn remove_chunk(
+    mut commands: Commands,
+    fps_camera_query: Query<&GlobalTransform, With<FpsCameraController>>,
+    voxel_settings: Res<voxel::VoxelSettings>,
+    chunk_query: Query<(Entity, &voxel::Chunk)>,
+    column_mesh_query: Query<(Entity, &voxel::ColumnMesh)>,
+    mut voxel_data: ResMut<voxel::VoxelData>,
+    mut column_meshes: ResMut<voxel::VoxelMeshes>,
+) {
+    let transform = fps_camera_query.single();
+    let camera_pos = transform.translation();
+    let chunk_index = voxel::get_chunk_index(&camera_pos);
+
+    let sight_range = voxel_settings.sight_range as i32;
+
+    for (chunk_entity, chunk) in chunk_query.iter() {
+        if (chunk.index.x - chunk_index.x).abs() > sight_range
+            || (chunk.index.z - chunk_index.z).abs() > sight_range
+        {
+            voxel_data.chunks.remove(&chunk.index);
+            commands.entity(chunk_entity).despawn_recursive();
+        }
+    }
+
+    for (column_mesh_entity, column_mesh) in column_mesh_query.iter() {
+        if (column_mesh.column.x - chunk_index.x).abs() > sight_range
+            || (column_mesh.column.z - chunk_index.z).abs() > sight_range
+        {
+            column_meshes.columns.remove(&column_mesh.column);
+            commands.entity(column_mesh_entity).despawn_recursive();
         }
     }
 }

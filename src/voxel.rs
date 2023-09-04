@@ -5,6 +5,7 @@ use bevy::{
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 
+use bevy_inspector_egui::{prelude::ReflectInspectorOptions, InspectorOptions};
 use lerp::Lerp;
 use noise::{NoiseFn, Perlin, Seedable};
 
@@ -810,4 +811,11 @@ pub fn pos_to_voxel(pos: &Vec3) -> (ChunkIndex, VoxelLocalIndex) {
             z: (pos.z - chunk_index.z as f32 * CHUNK_SIZE as f32).floor() as u8,
         },
     )
+}
+
+#[derive(Reflect, Resource, Default, InspectorOptions)]
+#[reflect(Resource, InspectorOptions)]
+pub struct VoxelSettings {
+    pub sight_range: u8, // in chunk
+    pub interact_distance: f32,
 }
